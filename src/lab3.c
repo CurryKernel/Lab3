@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/kthread.h>
+#include <linux/semaphore.h>
 
 #define ARR_SIZE 1000000
 
@@ -18,10 +19,14 @@ static struct task_struct *t1;
 static struct task_struct *t2;
 static int arr[ARR_SIZE];
 static int idx = 0;
+static long id1 = 1;
+static long id2 = 2;
 
 static int stat[ARR_SIZE] = { 0 };
 static int cs1 = 0;
 static int cs2 = 0;
+
+static struct semaphore lock;
 
 MODULE_LICENSE("GPL");
 
@@ -32,8 +37,15 @@ int incrementer( void *ptr_void ) {
     printk(KERN_INFO "Consumer TID %ld\n", ptr);
 
     while(idx < ARR_SIZE) {
-        arr[idx++] += 1;
-        schedule();
+        // Acquire lock and perform work if semaphore is unlocked
+        if(!down_interruptible(&lock)) {
+            //Perform work
+            arr[idx++] += 1;
+            schedule();
+
+            // Unlock semaphore
+            up(&lock);
+        }
 
         // Do a stats test (described in part 1)
         if(ptr == 1) {
@@ -46,19 +58,17 @@ int incrementer( void *ptr_void ) {
 }
 
 int init_module( void ) {
-    long id1;
-    long id2;
-
     printk("lab3 module installing\n");
 
-    id1 = 1;
-    id2 = 2;
     t1 = kthread_create(incrementer, (void*)id1, "inc1");
     t2 = kthread_create(incrementer, (void*)id2, "inc2");
     if(t1 && t2) {
         printk(KERN_INFO "Starting...\n");
         wake_up_process(t1);
         wake_up_process(t2);
+
+        // Initialize semaphore as unlocked (1)
+        sema_init(&lock, 1);
     } else {
         printk(KERN_EMERG "Error\n");
     }
