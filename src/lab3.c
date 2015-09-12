@@ -5,6 +5,37 @@
  * 
  * This module uses multiple synchronous threads
  * to increment some values in an array.
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * >   All elements should have value 1 when the module is unloaded.
+ * >   But the number of times idx is incremented may be 1000001.
+ * >   Why is that?
+ * 
+ * To answer this question, consider a series of events scheduled to
+ * occuring in this particular order:
+ *          (Assume idx = 999999 before these events)
+ *    1. ts1 sees that idx < 1000000, and enters while loop
+ *    2. ts2 sees that idx < 1000000, and enters while loop
+ *    3. ts1 interrogates semaphore state, acquires lock, and increments idx
+ *          (notice that idx = 1000000 now)
+ *    4. ts1 releases lock
+ *    5. ts2 interrogates semaphore state, acquires lock, and increments idx
+ * Oh my!  Step 5 causes idx = 1000001
+ * 
+ * Our code currently looks like this:
+ *     if(semaphore unocked) {
+ *         ....
+ *     }
+ * 
+ * Introducing an additional check would mitigate the unnecessary increment:
+ *     if(semaphore unocked) {
+ *         if(idx < ARR_SIZE) {
+ *             ....
+ *         }
+ *     }
+ * 
+ * ---------------------------------------------------------------------------
  *
  */
 
