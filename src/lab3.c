@@ -45,13 +45,13 @@ int incrementer( void *ptr_void ) {
 
             // Unlock semaphore
             up(&lock);
-        }
 
-        // Do a stats test (described in part 1)
-        if(ptr == 1) {
-            cs1++;
-        } else {
-            cs2++;
+            // Do a stats test (described in part 1)
+            if(ptr == 1) {
+                cs1++;
+            } else {
+                cs2++;
+            }
         }
     }
     return 0;
