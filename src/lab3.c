@@ -1,5 +1,5 @@
 /* Author: Garrett Scholtes
- * Date:   2015-09-09
+ * Date:   2015-09-12
  *
  * Lab3 - CS4029
  * 
@@ -21,20 +21,27 @@
  *          (notice that idx = 1000000 now)
  *    4. ts1 releases lock
  *    5. ts2 interrogates semaphore state, acquires lock, and increments idx
- * Oh my!  Step 5 causes idx = 1000001
+ * Oh my!  Step 5 causes idx = 1000001... and now we have modified memory
+ * that we should not have access to.
  * 
- * Our code currently looks like this:
- *     if(semaphore unocked) {
- *         ....
- *     }
- * 
- * Introducing an additional check would mitigate the unnecessary increment:
- *     if(semaphore unocked) {
- *         if(idx < ARR_SIZE) {
+ * The old code currently looks like this:
+ *     while(idx < ARR_SIZE) {
+ *         if(semaphore unocked) {
  *             ....
  *         }
  *     }
  * 
+ * Moving the check would mitigate the extraneous increment:
+ *     while(true) {
+ *         if(semaphore unocked) {
+ *             if(idx >= ARR_SIZE) {
+ *                 break;
+ *             }
+ *             ....
+ *         }
+ *     }
+ * 
+ * idx is now protected by the semaphore during the check.
  * ---------------------------------------------------------------------------
  *
  */
@@ -67,9 +74,15 @@ int incrementer( void *ptr_void ) {
 
     printk(KERN_INFO "Consumer TID %ld\n", ptr);
 
-    while(idx < ARR_SIZE) {
+    while(true) {
         // Acquire lock and perform work if semaphore is unlocked
         if(!down_interruptible(&lock)) {
+            // idx also needs to be protected while performing
+            // the check, so we place the check in here instead
+            // of in the while loop conditional.
+            if(idx >= ARR_SIZE) {
+                break;
+            }
             //Perform work
             arr[idx++] += 1;
             schedule();
